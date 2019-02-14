@@ -1,3 +1,6 @@
+### pygithub-webhook:
+- serverless app for keeping track of git commit hashes per file on s3
+
 ### Quick deployment
 - Install npm
 ```
