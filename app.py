@@ -149,13 +149,13 @@ def index():
         else:
             s3 = boto3.resource('s3')
             bucket = s3.Bucket(s3bucketname)
-
         json.load_s3 = lambda f: json.load(bucket.Object(key=f).get()['Body'])
         json.dump_s3 = lambda obj, f: bucket.Object(key=f).put(Body=json.dumps(obj))
         #s3 fetch
         s3data = json.load_s3(s3key)
         datad = FilehashMap(s3data)
         commithash = payload['after']
+        #z=[x[y] for x in mydict['commits'] for y in x] -
         for commit in payload['commits']:
             for z in commit['added']:
                 print(z)
@@ -169,7 +169,6 @@ def index():
 
         print('s3 upload')
         json.dump_s3(datad.displayhashmap(), s3key)
-
         #set perms
         s3objacl = s3.ObjectAcl(s3bucketname, s3key)
         response = s3objacl.put(ACL='public-read')
