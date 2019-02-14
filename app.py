@@ -5,15 +5,13 @@ import re
 import sys
 import json
 import subprocess
-import requests
 import ipaddress
 import hmac
-import boto3
-
 from hashlib import sha1
 from flask import Flask, request, abort
-
-if not os.environ.get('USE_SERVERLESS', None) == 'true':
+import requests
+import boto3
+if os.environ.get('USE_EC2', None) == 'true':
     from botocore.utils import InstanceMetadataFetcher
     from botocore.credentials import InstanceMetadataProvider
 
@@ -31,17 +29,17 @@ module.
 """
 class FilehashMap:
     def __init__(self, datadict):
-        self.hashMap = datadict
+        self.hashmap = datadict
 
     def additem(self, filename, filehash):
-        self.hashMap[str(filename)] = filehash
+        self.hashmap[str(filename)] = filehash
 
     def delitem(self, item):
         #del self.hashMap[str(item)]
-        self.hashMap.pop(str(item), None)
+        self.hashmap.pop(str(item), None)
 
-    def displayhashMap(self):
-        return self.hashMap
+    def displayhashmap(self):
+        return self.hashmap
 
 
 if os.environ.get('USE_PROXYFIX', None) == 'true':
@@ -119,30 +117,43 @@ def index():
                 mac = hmac.new(key, msg=request.data, digestmod=sha1)
                 if not compare_digest(mac.hexdigest(), signature):
                     abort(403)
+
         if repo.get('action', None):
             for action in repo['action']:
                 subp = subprocess.Popen(action, cwd=repo.get('path', '.'))
                 subp.wait()
 
-        print('s3 connection')
-        s3bucketname = 'blockdxbuilds'
-        serverless = True
-        if not serverless:
-          provider = InstanceMetadataProvider(iam_role_fetcher=InstanceMetadataFetcher(timeout=1000, num_attempts=2))
-          creds = provider.load()
-          session = boto3.Session(
-              aws_access_key_id=creds.access_key,
-              aws_secret_access_key=creds.secret_key,
-              aws_session_token=creds.token
-          )
-          s3 = session.resource('s3').Bucket(s3bucketname)
+        if repo.get('s3bucket', None):
+            s3bucketname = repo.get('s3bucket')
         else:
-          s3 = boto3.resource('s3')
-          bucket = s3.Bucket(s3bucketname)
-        json.load_s3 = lambda f: json.load(bucket.Object(key=f).get()["Body"])
+            print('missing s3 bucketname')
+            abort(500)
+        if repo.get('s3key', None):
+            s3key = repo.get('s3key')
+        else:
+            print('missing s3 filename')
+            abort(500)
+
+        print('s3 connection')
+
+        if os.environ.get('USE_EC2', None) == 'true':
+            provider = InstanceMetadataProvider(iam_role_fetcher=InstanceMetadataFetcher(
+                timeout=1000, num_attempts=2))
+            creds = provider.load()
+            session = boto3.Session(
+                aws_access_key_id=creds.access_key,
+                aws_secret_access_key=creds.secret_key,
+                aws_session_token=creds.token
+            )
+            s3 = session.resource('s3').Bucket(s3bucketname)
+        else:
+            s3 = boto3.resource('s3')
+            bucket = s3.Bucket(s3bucketname)
+
+        json.load_s3 = lambda f: json.load(bucket.Object(key=f).get()['Body'])
         json.dump_s3 = lambda obj, f: bucket.Object(key=f).put(Body=json.dumps(obj))
         #s3 fetch
-        s3data = json.load_s3("blockchainconfig/blockchainconfigfilehashmap.json")
+        s3data = json.load_s3(s3key)
         datad = FilehashMap(s3data)
         commithash = payload['after']
         for commit in payload['commits']:
@@ -157,38 +168,16 @@ def index():
                 print(z)
 
         print('s3 upload')
-        #TODO: remove hardcoded setting
-        s3key = 'blockchainconfig/blockchainconfigfilehashmap.json'
-        json.dump_s3(datad.displayhashMap(),s3key)
+        json.dump_s3(datad.displayhashmap(), s3key)
+
         #set perms
         s3objacl = s3.ObjectAcl(s3bucketname, s3key)
         response = s3objacl.put(ACL='public-read')
         print('s3 done')
         return 'OK'
 
-# Check if python version is less than 2.7.7
-if sys.version_info < (2, 7, 7):
-    # http://blog.turret.io/hmac-in-go-python-ruby-php-and-nodejs/
-    def compare_digest(a, b):
-        """
-        ** From Django source **
 
-        Run a constant time comparison against two strings
-
-        Returns true if a and b are equal.
-
-        a and b must both be the same length, or False is
-        returned immediately
-        """
-        if len(a) != len(b):
-            return False
-
-        result = 0
-        for ch_a, ch_b in zip(a, b):
-            result |= ord(ch_a) ^ ord(ch_b)
-        return result == 0
-else:
-    compare_digest = hmac.compare_digest
+compare_digest = hmac.compare_digest
 
 if __name__ == "__main__":
     try:

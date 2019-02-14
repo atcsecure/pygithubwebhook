@@ -1,0 +1,24 @@
+{
+  "name": "serverless-githubwebhook",
+  "description": "- Install npm ``` $ sudo apt install npm ``` - Install serverless framework ``` $ npm install serverless -g ``` - Install App dependencies ``` $ npm install ``` - Install python3-pip (curl is used to check URL state) ``` sudo apt install python3-pip curl -y ``` - App Deployment ```  $ serverless deploy ```",
+  "version": "0.1.0",
+  "dependencies": {},
+  "devDependencies": {
+    "serverless-python-requirements": "^4.3.0",
+    "serverless-wsgi": "^1.7.1"
+  },
+  "main": "app.py",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atcsecure/pygithubwebhook.git"
+  },
+  "author": "atcsecure",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/atcsecure/pygithubwebhook/issues"
+  },
+  "homepage": "https://github.com/atcsecure/pygithubwebhook#readme"
+}

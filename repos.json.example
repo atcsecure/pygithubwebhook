@@ -1,0 +1,9 @@
+{
+    "atcsecure/gitwebhooks": {
+        "path": "./",
+        "key": "configure_in_github",
+        "s3bucket": "s3bucket_name",
+        "s3key": "s3_filename"
+
+    }
+}
